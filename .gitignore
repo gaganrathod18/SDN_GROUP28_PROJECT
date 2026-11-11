@@ -1,0 +1,6 @@
+# created by scripts/setup_env.sh and while running
+pox/
+pacman/build/
+PROJECT/results/
+__pycache__/
+*.pyc
