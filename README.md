@@ -17,6 +17,7 @@ step, on every OpenFlow switch**.
 
 - **[PAPER.pdf](PAPER.pdf)**: research paper (IEEE conference format, 8 pages). LaTeX source in `PROJECT/report_ieee/`.
 - **[DEMO.pdf](DEMO.pdf)**: live demo guide, with every command, screenshots and what to say.
+- **[INFO.pdf](INFO.pdf)**: project overview in simple language: problem statement, proposed solution, what we did, results.
 
 ## Idea
 
@@ -77,7 +78,7 @@ and flood attacks. Test seeds:
 
 ```
 SDN_GROUP28_PROJECT/
-├── PAPER.pdf, DEMO.pdf, README.md
+├── PAPER.pdf, DEMO.pdf, INFO.pdf, README.md
 ├── PROJECT/
 │   ├── detector/
 │   │   ├── detectors.py        AIS-SPRT and the baselines (TRW, IA-Window, Naive-Window, Entropy)
