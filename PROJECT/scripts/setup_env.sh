@@ -19,7 +19,7 @@ elif command -v apt-get >/dev/null; then
                           cmake g++ make libpcap-dev libcurl4-openssl-dev git
   sudo systemctl enable --now openvswitch-switch
 else
-  echo "Unsupported package manager: install the packages listed in README.md by hand." >&2
+  echo "Unsupported package manager: install the packages listed in docs/DEPLOY.md by hand." >&2
   exit 1
 fi
 

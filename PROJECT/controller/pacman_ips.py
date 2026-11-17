@@ -17,6 +17,7 @@ from pox.core import core
 import pox.openflow.libopenflow_01 as of
 from pox.lib.addresses import IPAddr
 from pox.lib.recoco import Timer
+from pox.lib.revent import EventHalt
 from pox.lib.util import dpid_to_str
 
 import csv
@@ -54,6 +55,11 @@ def _prepare_csv(path, header):
     if not os.path.exists(path) or os.path.getsize(path) == 0:
         with open(path, "wb") as f:
             csv.writer(f).writerow(header)
+
+
+def _name(key):
+    ip, dst = key
+    return ip if dst is None else "%s->%s" % (ip, dst)
 
 
 def valid_unicast_ipv4(text):
@@ -129,9 +135,13 @@ class Blocker(object):
         self.offset = 0                         # bytes of the blocklist already processed
         self.inode = None
         self.missing_reported = False
-        self.active = {}                        # ip -> (expiry unix time, reason)
+        self.active = {}                        # (ip, dst or None) -> (expiry unix time, reason)
+        self.offences = {}                      # ip -> times of host-level blocks (repeat-offender back-off)
         _prepare_csv(events_file, EVENT_HEADER)
         core.openflow.addListeners(self)
+        # Runs before l2_learning: packets of a blocked source that still reach the controller are discarded, so no
+        # new exact-match entry can be installed for them while the DELETE/ADD pair is being applied.
+        core.openflow.addListenerByName("PacketIn", self._guard, priority=10)
         Timer(1, self._tick, recurring=True)
         log.info("Blocker ready: reading %s every 1 s, block for %ss, protected: %s",
                  blocklist, block_seconds, ", ".join(sorted(protect)) or "none")
@@ -172,11 +182,11 @@ class Blocker(object):
         now = time.time()
         for line in self._new_lines():
             self._handle_line(line.strip(), now)
-        for ip, (expiry, reason) in list(self.active.items()):
+        for key, (expiry, reason) in list(self.active.items()):
             if expiry <= now:
-                del self.active[ip]
-                log.info("Block on %s expired; traffic from it is allowed again", ip)
-                self._event("EXPIRE", ip, reason)
+                del self.active[key]
+                log.info("Block on %s expired; traffic from it is allowed again", _name(key))
+                self._event("EXPIRE", _name(key), reason)
 
     def _handle_line(self, line, now):
         if not line or line.startswith("#"):
@@ -190,6 +200,8 @@ class Blocker(object):
             except ValueError:
                 stamp = None
         reason = parts[2].strip() if len(parts) > 2 else (parts[1].strip() if len(parts) > 1 and stamp is None else "")
+        scope = parts[3].strip() if len(parts) > 3 else "host"       # "host" or a destination IP (per-path block)
+        dst = scope if scope != "host" and valid_unicast_ipv4(scope) else None
 
         if not valid_unicast_ipv4(ip):
             log.warning("Ignoring invalid blocklist entry: %r", line[:80])
@@ -200,48 +212,67 @@ class Blocker(object):
             self._event("SKIP_PROTECTED", ip, reason)
             return
         start = stamp if stamp is not None and stamp <= now + 5 else now
-        remaining = start + self.block_seconds - now
+        seconds = self.block_seconds
+        if dst is None:                         # repeat offender: 1x, 2x, 4x, 8x the block time within one hour
+            hist = [t for t in self.offences.get(ip, []) if start - t < 3600 and start - t > seconds / 2.0]
+            seconds *= 2 ** min(len(hist), 3)
+        remaining = start + seconds - now
         if remaining < 1:
             self._event("STALE", ip, reason, seconds="%.0f" % (now - start))
             return
-        self._block(ip, reason, start + self.block_seconds)
+        if dst is None and (ip not in self.offences or start not in self.offences[ip]):
+            self.offences.setdefault(ip, []).append(start)
+        self._block(ip, reason, start + seconds, dst)
 
     # -------------------------------------------------------------- OpenFlow
 
-    def _flow_mods(self, ip, seconds):
+    def _flow_mods(self, ip, seconds, dst=None):
         match = of.ofp_match(dl_type=0x0800, nw_src=IPAddr(ip))
+        if dst:
+            match.nw_dst = IPAddr(dst)
         delete = of.ofp_flow_mod(command=of.OFPFC_DELETE, match=match)
         drop = of.ofp_flow_mod(command=of.OFPFC_ADD, match=match, priority=BLOCK_PRIORITY,
                                hard_timeout=min(65535, int(math.ceil(seconds))))
         return delete, drop                      # no actions on `drop` = discard
 
-    def _install(self, connection, ip, seconds):
-        for msg in self._flow_mods(ip, seconds):
+    def _install(self, connection, ip, seconds, dst=None):
+        for msg in self._flow_mods(ip, seconds, dst):
             connection.send(msg)
 
-    def _block(self, ip, reason, expiry):
-        refreshed = ip in self.active
-        self.active[ip] = (expiry, reason)
+    def _guard(self, event):
+        ipp = event.parsed.find("ipv4") if event.parsed is not None else None
+        if ipp is None or not self.active:
+            return
+        src, dst = str(ipp.srcip), str(ipp.dstip)
+        if (src, None) in self.active or (src, dst) in self.active:
+            return EventHalt
+
+    def _block(self, ip, reason, expiry, dst=None):
+        key = (ip, dst)
+        refreshed = key in self.active
+        self.active[key] = (expiry, reason)
         seconds = expiry - time.time()
         done = 0
         for connection in list(core.openflow.connections):
             try:
-                self._install(connection, ip, seconds)
+                self._install(connection, ip, seconds, dst)
                 done += 1
             except Exception as e:
                 log.warning("Could not block %s on %s: %s", ip, dpid_to_str(connection.dpid), e)
         log.warning("%s %s on %d switch(es) for %.0f s (%s)", "Refreshed block on" if refreshed else "BLOCKED",
-                    ip, done, seconds, reason or "no reason")
-        self._event("REFRESH" if refreshed else "BLOCK", ip, reason, done, "%.0f" % seconds)
+                    _name(key), done, seconds, reason or "no reason")
+        self._event("REFRESH" if refreshed else ("BLOCK" if dst is None else "BLOCK_PATH"), _name(key), reason, done,
+                    "%.0f" % seconds)
 
     def _handle_ConnectionUp(self, event):
         # A switch that (re)connects gets every block that is still running.
         now = time.time()
-        for ip, (expiry, reason) in self.active.items():
+        for (ip, dst), (expiry, reason) in self.active.items():
             if expiry - now >= 1:
-                self._install(event.connection, ip, expiry - now)
-                log.info("Re-applied block on %s to switch %s (%.0f s left)", ip, dpid_to_str(event.dpid), expiry - now)
-                self._event("REAPPLY", ip, reason, dpid_to_str(event.dpid), "%.0f" % (expiry - now))
+                self._install(event.connection, ip, expiry - now, dst)
+                log.info("Re-applied block on %s to switch %s (%.0f s left)", _name((ip, dst)), dpid_to_str(event.dpid),
+                         expiry - now)
+                self._event("REAPPLY", _name((ip, dst)), reason, dpid_to_str(event.dpid), "%.0f" % (expiry - now))
 
 
 def launch(interval=5, stats_file="/project/results/flow_stats.csv",

@@ -1,0 +1,6 @@
+run,kind,path_s,host_s,hard_timeout,user_ok,attacker_cut,ping_stop_after_host_s
+1,fast,,0.68,29,True,True,16.11
+2,fast,0.79,0.85,59,True,True,-0.28
+3,fast,1.16,1.05,120,True,True,-0.28
+4,fast,,1.39,120,True,True,-0.20
+5,slow 0.5/s,,20.21,,,,

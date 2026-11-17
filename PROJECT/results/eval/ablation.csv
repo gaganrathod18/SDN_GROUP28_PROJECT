@@ -1,0 +1,7 @@
+variant,TPR,FPR,F1,delay_med_s
+AIS-SPRT (full),1.000,0.000,1.000,3.07
+w/o novelty weight,1.000,0.008,0.960,3.07
+w/o flood CUSUM,0.875,0.000,0.933,3.08
+w/o evidence decay,1.000,0.000,1.000,3.07
+re-score after 30 s,0.917,0.000,0.957,2.69
+TRW,0.875,0.008,0.894,4.08

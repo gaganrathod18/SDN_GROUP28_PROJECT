@@ -1,0 +1,7 @@
+% written from results/aisprt_live.csv and results/aisprt_live_tests.txt (11 Nov 2026)
+\subsection{Live closed loop}
+On the four-host Mininet network with POX and a 15~s base block time, normal browsing produced no request. In four fast
+scans of 100 ports the host block was on all three switches 0.68, 0.85, 1.05 and 1.39~s after the scan started (attacker
+100\% loss, normal user 0\%). For fast scans suspicion and decision fall within milliseconds, so polling could not separate
+the two stages (one of nine checks failed for this reason). Back-off gave block times of 15, 30, 60, 120 and 120~s, and a slow
+scan at 0.5 probes/s was blocked on all switches after 20.2~s.

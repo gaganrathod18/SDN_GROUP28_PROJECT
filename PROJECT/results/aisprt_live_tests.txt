@@ -1,0 +1,17 @@
+AIS-SPRT live closed-loop tests  ·  2026-11-11 22:16:24
+============================================================
+[PASS] T1   network up
+[PASS] T2   live AIS-SPRT engine running on mon0
+[PASS] T3   normal browsing: no block request
+  run 1: path block  s, host block 0.68 s, hard_timeout 29, user ok True, attacker cut True
+  run 2: path block 0.79 s, host block 0.85 s, hard_timeout 59, user ok True, attacker cut True
+  run 3: path block 1.16 s, host block 1.05 s, hard_timeout 120, user ok True, attacker cut True
+  run 4: path block  s, host block 1.39 s, hard_timeout 120, user ok True, attacker cut True
+[PASS] T4   every fast scan: host block on all switches  -> 0.68, 0.85, 1.05, 1.39
+[FAIL] T5   path block lands no later than the host block
+[PASS] T6   normal user unaffected and attacker cut in every run
+[PASS] T7   repeat offender: block time doubles (back-off)  -> hard timeouts: [29, 59, 120, 120]
+[PASS] T8   slow scan (0.5 probes/s, below the window detector's 1.5/s floor) is blocked  -> 20.2 s after start
+[PASS] T9   controller logs contain no Python traceback
+============================================================
+8/9 checks passed

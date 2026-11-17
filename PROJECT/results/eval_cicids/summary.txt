@@ -1,0 +1,26 @@
+Friday: packets 9915680, attempts 396429, capture 08:59-17:02 local, extraction 52 s
+calibration part: 95334 attempts, 14 sources; test part: 301095 attempts, 14 sources
+    PortScan   attacker attempts  159934, failures  158768, ports 1061
+    DDoS LOIT  attacker attempts   44896, failures     544, ports 1
+calibration: largest CUSUM 192.168.10.17 513, 192.168.10.12 434, 192.168.10.19 407, 192.168.10.16 333, 192.168.10.3 173 -> h = 620
+AIS-SPRT (ours)          TP 2/2  FP   2/8  F1 0.667  delay 45.5 / 31.8 s  outside 0  calib FP 0/8
+    FP hosts: 192.168.10.17 192.168.10.50
+TRW                      TP 1/2  FP   2/8  F1 0.400  delay 45.5 / -- s  outside 0  calib FP 1/8
+    FP hosts: 192.168.10.17 192.168.10.50
+Entropy                  TP 1/2  FP   0/8  F1 0.667  delay 45.5 / -- s  outside 0  calib FP 1/8
+IA-Window                TP 1/2  FP   0/8  F1 0.667  delay 45.5 / -- s  outside 0  calib FP 1/8
+Naive-Window             TP 1/2  FP   2/8  F1 0.400  delay 45.5 / -- s  outside 0  calib FP 2/8
+AIS-SPRT, emulation h    TP 2/2  FP   5/8  F1 0.444  delay 45.5 / 31.8 s  outside 0  calib FP 5/8
+    FP hosts: 192.168.10.12 192.168.10.16 192.168.10.17 192.168.10.19 192.168.10.50
+w/o novelty weight       TP 2/2  FP   2/8  F1 0.667  delay 45.5 / 31.8 s  outside 0  calib FP 0/8
+    FP hosts: 192.168.10.17 192.168.10.50
+w/o flood CUSUM          TP 1/2  FP   2/8  F1 0.400  delay 45.5 / -- s  outside 0  calib FP 0/8
+    FP hosts: 192.168.10.17 192.168.10.50
+w/o evidence decay       TP 2/2  FP   2/8  F1 0.667  delay 45.5 / 31.8 s  outside 0  calib FP 2/8
+    FP hosts: 192.168.10.17 192.168.10.50
+re-score after 30 s      TP 2/2  FP   2/8  F1 0.667  delay 45.5 / 31.8 s  outside 0  calib FP 0/8
+    FP hosts: 192.168.10.17 192.168.10.25
+Random Forest            TP 2/2  FP   5/8  F1 0.444  delay 0.0 / 60.0 s  outside 0  calib FP -
+    FP hosts: 192.168.10.12 192.168.10.16 192.168.10.17 192.168.10.19 192.168.10.25
+Isolation Forest         TP 1/2  FP   1/8  F1 0.500  delay 50.0 / -- s  outside 0  calib FP -
+    FP hosts: 192.168.10.16

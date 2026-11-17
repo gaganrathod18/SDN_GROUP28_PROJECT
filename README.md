@@ -1,4 +1,5 @@
-# SDN-Based Network Traffic Monitor & Anomaly Detection
+# SDN-Based Network Traffic Monitor and Anomaly Detection
+### Initiation-Aware Sequential Detection with Graded OpenFlow Mitigation
 
 **Group SDN_28 · IIIT Dharwad · Software Defined Networking**
 
@@ -11,147 +12,138 @@
 | Dudlewar Adinath | 23bcs046 |
 | Harshit | 23bcs037 |
 
-A small SDN campus network that **detects port scans and blocks the attacker automatically**.
-The core switch copies all traffic to our packet monitor **PacMan**. When PacMan sees a port scan it writes the
-attacker's IP to a file; our **POX** controller program reads it and installs a **drop rule on every switch** for
-120 seconds. Median time from scan start to block: **1.28 s**. Normal users are not affected. 54/54 automated tests pass.
+An SDN campus network that **detects port scans and connection floods and blocks the attacker automatically, step by
+step, on every OpenFlow switch**.
 
-- **REPORT.pdf**: the project report (IEEE format)
-- **DEMO.pdf**: step-by-step live demo with every command, screenshots and what to say
+- **[PAPER.pdf](PAPER.pdf)**: research paper (IEEE conference format, 8 pages). LaTeX source in `PROJECT/report_ieee/`.
+- **[DEMO.pdf](DEMO.pdf)**: live demo guide, with every command, screenshots and what to say.
+
+## Idea
+
+Window-and-threshold detectors ("more than 15 ports in 10 s") flag busy servers and health checkers, miss slow scans
+and block the whole host at once. **AIS-SPRT** (Adaptive Initiation-aware Sequential Probability Ratio Test) instead
+scores every host by the **outcome of the connections it starts**. Legitimate clients mostly reach services that
+exist, so their attempts succeed. Scanners probe services that do not exist, so theirs fail.
+
+- each failure adds evidence and each success removes it (Wald's SPRT); a host is decided a scanner at
+  `ln(0.99/0.01) = 4.6`;
+- each service is scored once per host (first contact), so retries do not count;
+- failures on services that many hosts use count less (**novelty weight**), so a server outage is not an attack;
+- evidence **decays** (τ = 600 s), so a benign host's old failures fade;
+- a **CUSUM** test on connections per second catches floods, whose connections succeed.
+
+Its decisions drive a **graded** OpenFlow response in POX:
+1. **path block** (attacker → victim) at suspicion;
+2. **host block** at decision;
+3. **exponential back-off** for repeat offenders (B·2^k);
+4. a **packet-in guard** that closes the rule-installation race.
+
+**PacMan**, our C++ htop-style terminal monitor, shows the operator the same traffic and every block.
+
+```
+Application plane   AIS-SPRT engine (detector/live.py) ──"ip time reason scope"──▶ results/blocklist.txt
+                    PacMan dashboard (frontend, read-only view of the same traffic)
+Control plane       POX: l2_learning + pacman_ips (validate, graded block, back-off, packet-in guard, flow stats 5 s)
+Data plane          s1 core ── s2 (h1 web 10.0.0.1, h2 files 10.0.0.2)
+                            └─ s3 (h3 user 10.0.0.3, h4 attacker 10.0.0.4)     s1 mirrors all ports → mon0
+```
+
+## Results (details in PAPER.pdf)
+
+**Emulated labelled dataset:** 24 recordings, 8 scenarios × 3 seeds, 44,855 connection attempts, included in
+`PROJECT/results/dataset/`. Scenarios: benign, server outage, fast, slow (0.5/s and 0.2/s), horizontal, distributed
+and flood attacks. Test seeds:
+
+| Method | TPR | FPR | F1 |
+|---|---|---|---|
+| **AIS-SPRT (ours)** | **1.000** | **0.000** | **1.000** |
+| Threshold Random Walk | 0.875 | 0.006 | 0.903 |
+| Entropy | 0.875 | 0.193 | 0.438 |
+| Random Forest | 0.750 | 0.182 | 0.400 |
+| IA-Window / Naive-Window | 0.125 | 0.000 | 0.222 |
+
+**Public CIC-IDS2017 (Friday, 9.9 M packets of real office traffic), scan test not re-tuned:**
+- AIS-SPRT is the only detector besides the Random Forest that catches **both** the port scan (after 45 s) and the
+  DDoS (after 32 s).
+- It flags 2 of 8 benign hosts, against 5 of 8 for the Random Forest.
+- At α = 10⁻³ its F1 is 0.80, and at α = 3·10⁻⁴ it is 1.00. TRW stays at or below 0.50.
+
+**Live closed loop (Mininet + POX):**
+- Fast scans: the attacker was blocked on all switches 0.68–1.39 s after the scan started.
+- Slow scan (0.5 probes/s): blocked after 20.2 s.
+- Repeat offences: block times of 15 → 30 → 60 → 120 s.
 
 ## What is in this folder
 
 ```
 SDN_GROUP28_PROJECT/
-├── README.md
-├── REPORT.pdf                    project report
-├── DEMO.pdf                      live demo guide
-├── PROJECT/                      the SDN project
-│   ├── controller/pacman_ips.py  POX component: flow statistics + automatic blocking
-│   ├── topology/campus_topo.py   Mininet network (s1 core, s2 servers, s3 users) + mirror to mon0
-│   ├── config/pacman-sdn.conf    PacMan settings (thresholds, SDN mode, blocklist file)
-│   ├── test.py                   demo console for terminal T4 (menu of tests + live Mininet commands)
-│   └── scripts/
-│       ├── setup_env.sh          one-time install (packages, POX, controller image, PacMan build)
-│       ├── check_env.sh          checks that everything is installed
-│       ├── run_pox.sh            starts the POX controller (in Podman, Python 2.7)
-│       ├── run_pacman.sh         starts PacMan on the mirror port mon0
-│       ├── on_host.sh            runs a command inside a Mininet host (e.g. h4)
-│       ├── attacks/portscan.py   the attack: TCP port scan (lab addresses only)
-│       ├── labkit.py             helpers for the automated tests
-│       ├── test_phase2.py        tests: network + monitoring       (21 checks)
-│       ├── test_phase3.py        tests: detection + blocking       (25 checks)
-│       ├── test_phase4.py        tests: under heavy traffic        (8 checks)
-│       └── run_all_tests.sh      runs all three test suites
-└── pacman/                       PacMan packet monitor (C++17, libpcap, FTXUI)
-    ├── CMakeLists.txt, LICENSE, config/pacman.conf
-    ├── include/                  headers
-    └── src/                      source (detector: threat_detector.cpp, engine: pacman_engine.cpp,
-                                  block requests: firewall_manager.cpp)
+├── PAPER.pdf, DEMO.pdf, README.md
+├── PROJECT/
+│   ├── detector/
+│   │   ├── detectors.py        AIS-SPRT and the baselines (TRW, IA-Window, Naive-Window, Entropy)
+│   │   ├── pcapio.py           pcap/pcapng reader, turns packets into initiated attempts (success / failure)
+│   │   └── live.py             live AIS-SPRT engine on mon0, writes block requests
+│   ├── controller/pacman_ips.py  POX component: graded blocking, back-off, packet-in guard, flow statistics
+│   ├── topology/campus_topo.py   Mininet network with the s1 → mon0 mirror
+│   ├── config/                   PacMan settings (frontend mode used in the demo)
+│   ├── test.py                   demo console for terminal T4
+│   ├── scripts/
+│   │   ├── run_pox.sh, run_pacman.sh, on_host.sh, setup_env.sh, check_env.sh
+│   │   ├── attacks/             portscan.py (vertical), hscan.py (horizontal), synflood.py
+│   │   ├── bench/               benign servers and clients used for the dataset
+│   │   ├── exp_dataset.py       records the labelled dataset (sudo, Mininet)
+│   │   ├── eval_detectors.py    evaluation on the dataset → results/eval, paper figures
+│   │   ├── eval_cicids.py       cross-dataset test on CIC-IDS2017 → results/eval_cicids, Fig. 8
+│   │   ├── gen_results_tex.py   numbers for the paper (report_ieee/generated/results.tex)
+│   │   ├── test_aisprt_live.py  live closed-loop test (9 checks)
+│   │   └── test_phase2-4.py, run_all_tests.sh, labkit.py   earlier progress-review test suites
+│   ├── report_ieee/             paper source: main.tex, refs.bib, figures/, generated/
+│   └── results/                 dataset/, eval/, eval_cicids/, live-test results
+└── pacman/                      PacMan terminal monitor (C++17, libpcap, FTXUI)
 ```
 
-## How it works
+## Requirements and setup
 
-```
-Application plane   PacMan ──(HIGH alert)──▶ appends "ip  time  reason" to PROJECT/results/blocklist.txt
-Control plane       POX: l2_learning (forwarding) + pacman_ips (reads blocklist every 1 s, flow stats every 5 s)
-Data plane          s1 core ── s2 (h1 web 10.0.0.1, h2 files 10.0.0.2)
-                            └─ s3 (h3 user 10.0.0.3, h4 attacker 10.0.0.4)        s1 mirrors all ports → mon0 → PacMan
-```
-
-1. h4 scans h1. PacMan counts only connections a host **starts** (TCP SYN without ACK), so busy servers are never
-   flagged. More than 15 different ports in 10 s gives PORT_SCAN (HIGH).
-2. PacMan writes one line to `blocklist.txt`.
-3. The controller reads it within 1 s, **deletes** h4's existing flow rules and **adds** a drop rule
-   (`ip, nw_src=10.0.0.4`, priority 65000, no actions, hard timeout 120 s) on s1, s2 and s3.
-4. h4 is cut off; h3 keeps working. After 120 s the rule expires by itself.
-
-## Requirements
-
-Linux (tested on Fedora 43) with: Mininet, Open vSwitch, Podman, tcpdump, iperf, tshark (optional), cmake, g++,
-make, libpcap-devel, libcurl-devel, git. Internet access for the one-time setup (POX, the `python:2.7` image, and the
-FTXUI library downloaded by CMake). sudo access.
-
-Fedora / RHEL:
-```bash
-sudo dnf install -y mininet openvswitch podman tcpdump iperf wireshark-cli cmake gcc-c++ make libpcap-devel libcurl-devel git
-sudo systemctl enable --now openvswitch
-```
-Ubuntu / Debian:
-```bash
-sudo apt-get install -y mininet openvswitch-switch podman tcpdump iperf tshark cmake g++ make libpcap-dev libcurl4-openssl-dev git
-sudo systemctl enable --now openvswitch-switch
-```
-
-## Setup (once)
-
-The scripts expect `PROJECT/`, `pacman/` and `pox/` side by side (the repository has the first two; `setup_env.sh`
-clones POX next to them).
+Linux (tested on Fedora 43) with Mininet, Open vSwitch, Podman, tcpdump, cmake, g++, libpcap, Python 3 with
+`scikit-learn` and `matplotlib` (for the evaluation only), and sudo. POX runs in a `python:2.7` Podman container.
 
 ```bash
 git clone https://github.com/gaganrathod18/SDN_GROUP28_PROJECT.git
 cd SDN_GROUP28_PROJECT/PROJECT
-scripts/setup_env.sh        # installs packages, clones POX into ../pox, pulls python:2.7, builds ../pacman/build/pacman
+scripts/setup_env.sh        # packages, POX in ../pox, python:2.7 image, builds ../pacman/build/pacman
 scripts/check_env.sh        # every line must say [ OK ]
 ```
 
-Manual alternative to `setup_env.sh`:
-```bash
-cd SDN_GROUP28_PROJECT
-git clone https://github.com/noxrepo/pox
-podman pull docker.io/library/python:2.7
-cmake -S pacman -B pacman/build -DCMAKE_BUILD_TYPE=Release && make -C pacman/build -j4
-```
-
-## Run the demo (4 terminals, all in `SDN_GROUP28_PROJECT/PROJECT`)
+## Run the live demo (4 terminals, all in `PROJECT/`)
 
 | Terminal | Command | What it is |
 |---|---|---|
-| T1 | `scripts/run_pox.sh` | controller (POX + l2_learning + pacman_ips) |
+| T1 | `BLOCK_SECONDS=30 scripts/run_pox.sh` | POX controller (l2_learning + pacman_ips) |
 | T2 | `sudo python3 topology/campus_topo.py` | the network, `mininet>` prompt |
-| T3 | `scripts/run_pacman.sh` | PacMan live dashboard on mon0 (←/→ tabs, q quits) |
-| T4 | `python3 test.py` | demo console: type a test number |
+| T3 | `scripts/run_pacman.sh frontend` | PacMan dashboard on mon0 |
+| T4 | `python3 test.py` | demo console. It starts the AIS-SPRT engine and runs each step |
 
-In T2 start the web servers:
-```
-h1 python3 -m http.server 80 --directory /tmp &
-h2 python3 -m http.server 8080 --directory /tmp &
-```
-Then, in T4 (`test.py`): `6` normal traffic (no alert) → in T2 `h4 ping -i 0.5 10.0.0.2` → `7` attack →
-`8` proof (drop rules) → `9` attacker cut / user fine → `10` drop counter → `11` mirror silent → `12` events →
-`13` wait for expiry. `live` lists more Mininet commands to try. DEMO.pdf has every step with screenshots.
+Steps in `test.py`: `check`, `status`, `services`, `normal` (no alarm), `slow` (slow scan caught), `attack` (fast scan →
+blocked on every switch), `proof` (drop rules on every switch), `cut` (attacker 100 % loss, user 0 %), `events`,
+`repeat` (back-off doubles), `results`, `log`. DEMO.pdf walks through all of them.
 
-Without test.py, the attack is:
-```bash
-scripts/on_host.sh h4 python3 scripts/attacks/portscan.py 10.0.0.1 --ports 1-100 --timeout 0.2
-scripts/on_host.sh h4 ping -c 3 -W 1 10.0.0.2      # attacker: 100% loss
-scripts/on_host.sh h3 ping -c 3 -W 1 10.0.0.1      # normal user: 0% loss
-for s in s1 s2 s3; do sudo ovs-ofctl dump-flows $s "ip,nw_src=10.0.0.4"; done
-```
+Clean start: `sudo mn -c; podman rm -f pacman-pox; rm -f results/blocklist.txt results/block_events.csv`.
 
-Stop: `q` in T3, `exit` in T2, `Ctrl+C` in T1, then `sudo mn -c`.
-
-Controller options (environment variables for `run_pox.sh`): `BLOCK_SECONDS` (default 120), `PROTECT` (never blocked,
-default 10.0.0.1), `STATS_INTERVAL` (default 5). Example: `BLOCK_SECONDS=60 scripts/run_pox.sh`.
-
-## Automated tests (stop the demo first)
+## Reproduce the paper
 
 ```bash
-scripts/run_all_tests.sh                 # all suites, about 8 minutes
-sudo python3 scripts/test_phase2.py      # network + monitoring      21 checks
-sudo python3 scripts/test_phase3.py      # detection + blocking      25 checks
-sudo python3 scripts/test_phase4.py      # heavy traffic              8 checks
+cd PROJECT
+python3 scripts/eval_detectors.py      # emulated dataset (included): tables, ROC, per-scenario, delay, ablation, graded
+python3 scripts/gen_results_tex.py     # numbers used in the paper
+python3 scripts/eval_cicids.py         # needs the CIC-IDS2017 Friday capture, see below
+sudo python3 scripts/test_aisprt_live.py   # live closed-loop test
+cd report_ieee && pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
-Each suite starts its own controller, network and PacMan, and writes its PASS/FAIL list to `PROJECT/results/`.
 
-## Files written while running (`PROJECT/results/`)
-
-| File | Written by | Content |
-|---|---|---|
-| `blocklist.txt` | PacMan | one block request per line: `ip  unix-time  reason` |
-| `block_events.csv` | controller | BLOCK, EXPIRE, REFRESH, REAPPLY, SKIP_PROTECTED, INVALID, STALE |
-| `flow_stats.csv` | controller | flow counters of every switch, every 5 s |
-| `pacman.log` | PacMan | alerts, block requests, capture statistics |
+CIC-IDS2017 is not included (8.8 GB). Download `Friday-WorkingHours.pcap` from the
+[Canadian Institute for Cybersecurity](https://www.unb.ca/cic/datasets/ids-2017.html) into
+`../datasets/cicids2017/` next to `PROJECT/`, or set `CICIDS_DIR`. The first run extracts the connection attempts into
+a small cache; after that the pcap can be deleted.
 
 ## Troubleshooting
 
@@ -160,6 +152,4 @@ Each suite starts its own controller, network and PacMan, and writes its PASS/FA
 | `address already in use` when starting POX | `podman rm -f pacman-pox` |
 | Mininet `Error creating interface pair` | `sudo mn -c` |
 | `Interface mon0 does not exist` | start the network (T2) before PacMan |
-| `host h4 not found` from on_host.sh | the network in T2 is not running |
-| h4 blocked right after POX starts | an old request is still valid: `rm -f results/blocklist.txt results/block_events.csv` before `run_pox.sh` |
-| PacMan shows no traffic for h1 ↔ h2 | expected: only traffic through the core switch s1 is mirrored |
+| h4 blocked right after POX starts | an old request is still valid: remove `results/blocklist.txt` and `results/block_events.csv` |

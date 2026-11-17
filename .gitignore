@@ -1,6 +1,18 @@
 # created by scripts/setup_env.sh and while running
 pox/
+datasets/
 pacman/build/
-PROJECT/results/
+PROJECT/results/*
+!PROJECT/results/eval/
+!PROJECT/results/eval_cicids/
+!PROJECT/results/dataset/
+!PROJECT/results/aisprt_live.csv
+!PROJECT/results/aisprt_live_tests.txt
+PROJECT/report_ieee/*.aux
+PROJECT/report_ieee/*.bbl
+PROJECT/report_ieee/*.blg
+PROJECT/report_ieee/*.log
+PROJECT/report_ieee/*.out
+PROJECT/report_ieee/main.pdf
 __pycache__/
 *.pyc

@@ -12,7 +12,7 @@ warn() { printf '  [optional]  %s  ->  %s\n' "$1" "$2"; }
 
 echo "Checking the PacMan SDN project environment"
 for cmd in mn ovs-vsctl ovs-ofctl podman tcpdump python3; do
-  command -v "$cmd" >/dev/null && ok "$cmd" || bad "$cmd" "install it (see README.md)"
+  command -v "$cmd" >/dev/null && ok "$cmd" || bad "$cmd" "install it (see docs/DEPLOY.md)"
 done
 sudo -n true 2>/dev/null && ok "sudo without password prompt (needed by the tests)" \
   || warn "sudo asks for a password" "fine for manual runs; run_all_tests.sh will ask for it once"

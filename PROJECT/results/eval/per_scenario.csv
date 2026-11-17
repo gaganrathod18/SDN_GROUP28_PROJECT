@@ -1,0 +1,49 @@
+method,scenario,P,N,TP,FP,TPR,FPR,precision,F1,delay_med_s,probes_med
+AIS-SPRT (ours),benign,0,24,0,0,nan,0.000,nan,0.000,nan,nan
+AIS-SPRT (ours),outage,0,24,0,0,nan,0.000,nan,0.000,nan,nan
+AIS-SPRT (ours),vfast,2,22,2,0,1.000,0.000,1.000,1.000,0.071,6.500
+AIS-SPRT (ours),vslow05,2,22,2,0,1.000,0.000,1.000,1.000,19.065,27.500
+AIS-SPRT (ours),vslow02,2,22,2,0,1.000,0.000,1.000,1.000,35.064,51.000
+AIS-SPRT (ours),horiz,2,22,2,0,1.000,0.000,1.000,1.000,1.415,10.000
+AIS-SPRT (ours),dist,6,18,6,0,1.000,0.000,1.000,1.000,4.074,11.000
+AIS-SPRT (ours),flood,2,22,2,0,1.000,0.000,1.000,1.000,0.692,190.500
+TRW,benign,0,24,0,0,nan,0.000,nan,0.000,nan,nan
+TRW,outage,0,24,0,0,nan,0.000,nan,0.000,nan,nan
+TRW,vfast,2,22,2,0,1.000,0.000,1.000,1.000,0.071,5.500
+TRW,vslow05,2,22,2,0,1.000,0.000,1.000,1.000,18.065,27.000
+TRW,vslow02,2,22,2,0,1.000,0.000,1.000,1.000,34.070,47.000
+TRW,horiz,2,22,2,1,1.000,0.045,0.667,0.800,1.716,11.500
+TRW,dist,6,18,6,0,1.000,0.000,1.000,1.000,3.573,10.500
+TRW,flood,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+IA-Window,benign,0,24,0,0,nan,0.000,nan,0.000,nan,nan
+IA-Window,outage,0,24,0,0,nan,0.000,nan,0.000,nan,nan
+IA-Window,vfast,2,22,2,0,1.000,0.000,1.000,1.000,0.072,12.500
+IA-Window,vslow05,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+IA-Window,vslow02,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+IA-Window,horiz,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+IA-Window,dist,6,18,0,0,0.000,0.000,nan,0.000,nan,nan
+IA-Window,flood,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+Naive-Window,benign,0,24,0,0,nan,0.000,nan,0.000,nan,nan
+Naive-Window,outage,0,24,0,0,nan,0.000,nan,0.000,nan,nan
+Naive-Window,vfast,2,22,2,0,1.000,0.000,1.000,1.000,0.072,12.500
+Naive-Window,vslow05,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+Naive-Window,vslow02,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+Naive-Window,horiz,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+Naive-Window,dist,6,18,0,0,0.000,0.000,nan,0.000,nan,nan
+Naive-Window,flood,2,22,0,0,0.000,0.000,nan,0.000,nan,nan
+Entropy,benign,0,24,0,4,nan,0.167,0.000,0.000,nan,nan
+Entropy,outage,0,24,0,7,nan,0.292,0.000,0.000,nan,nan
+Entropy,vfast,2,22,2,4,1.000,0.182,0.333,0.500,0.071,6.000
+Entropy,vslow05,2,22,2,3,1.000,0.136,0.400,0.571,17.104,20.000
+Entropy,vslow02,2,22,2,4,1.000,0.182,0.333,0.500,8.444,13.500
+Entropy,horiz,2,22,2,4,1.000,0.182,0.333,0.500,16.730,86.500
+Entropy,dist,6,18,6,5,1.000,0.278,0.545,0.706,4.726,9.500
+Entropy,flood,2,22,0,3,0.000,0.136,0.000,0.000,nan,nan
+Random Forest,benign,0,24,0,7,nan,0.292,0.000,0.000,nan,nan
+Random Forest,outage,0,24,0,7,nan,0.292,0.000,0.000,nan,nan
+Random Forest,vfast,2,22,2,3,1.000,0.136,0.400,0.571,10.047,215.500
+Random Forest,vslow05,2,22,1,3,0.500,0.136,0.250,0.333,10.037,10.000
+Random Forest,vslow02,2,22,1,4,0.500,0.182,0.200,0.286,10.053,14.000
+Random Forest,horiz,2,22,2,3,1.000,0.136,0.400,0.571,10.036,55.000
+Random Forest,dist,6,18,6,3,1.000,0.167,0.667,0.800,10.053,29.500
+Random Forest,flood,2,22,0,2,0.000,0.091,0.000,0.000,nan,nan
